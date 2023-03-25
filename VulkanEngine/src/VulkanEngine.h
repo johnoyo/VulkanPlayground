@@ -2,8 +2,12 @@
 
 #include <GLFW/glfw3.h>
 
+#include "VkInit.h"
+#include "VkUtils.h"
+
 #include <set>
 #include <vector>
+#include <fstream>
 #include <iostream>
 #include <optional>
 #include <assert.h>
@@ -31,6 +35,22 @@ namespace VKE
 		std::vector<VkPresentModeKHR> PresentModes;
 	};
 
+	class PipelineBuilder 
+	{
+	public:
+		std::vector<VkPipelineShaderStageCreateInfo> m_ShaderStages;
+		VkPipelineVertexInputStateCreateInfo m_VertexInputInfo;
+		VkPipelineInputAssemblyStateCreateInfo m_InputAssembly;
+		VkViewport m_Viewport;
+		VkRect2D m_Scissor;
+		VkPipelineRasterizationStateCreateInfo m_Rasterizer;
+		VkPipelineColorBlendAttachmentState m_ColorBlendAttachment;
+		VkPipelineMultisampleStateCreateInfo m_Multisampling;
+		VkPipelineLayout m_PipelineLayout;
+
+		VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
+	};
+
 	class VulkanEngine
 	{
 	public:
@@ -56,6 +76,20 @@ namespace VKE
 		std::vector<VkImage> m_SwapChainImages;
 		std::vector<VkImageView> m_SwapChainImageViews;
 
+		VkCommandPool m_CommandPool; //the command pool for our commands
+		VkCommandBuffer m_MainCommandBuffer; //the buffer we will record into
+
+		VkRenderPass m_RenderPass;
+		std::vector<VkFramebuffer> m_FrameBuffers;
+
+		VkSemaphore m_PresentSemaphore, m_RenderSemaphore;
+		VkFence m_RenderFence;
+
+		uint32_t m_FrameNumber = 0;
+
+		VkPipelineLayout m_TrianglePipelineLayout;
+		VkPipeline m_TrianglePipeline;
+
 		const std::vector<const char*> m_DeviceExtensions = 
 		{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -78,7 +112,10 @@ namespace VKE
 		void CreateLogicalDevice();
 		void CreateSwapChain();
 		void CreateImageViews();
+		void CreateCommands();
 		void CreateRenderPass();
+		void CreateFrameBuffers();
+		void CreateSyncStructures();
 		void CreateGraphicsPipeline();
 
 		// Extensions.
