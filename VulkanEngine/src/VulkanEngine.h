@@ -1,16 +1,15 @@
 #pragma once
 
-#define VK_USE_PLATFORM_WIN32_KHR
-#define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#define GLFW_EXPOSE_NATIVE_WIN32
-#include <GLFW/glfw3native.h>
 
 #include <set>
 #include <vector>
 #include <iostream>
 #include <optional>
 #include <assert.h>
+#include <cstdint>
+#include <limits>
+#include <algorithm>
 
 namespace VKE
 {
@@ -25,15 +24,19 @@ namespace VKE
 		}
 	};
 
+	struct SwapChainSupportDetails 
+	{
+		VkSurfaceCapabilitiesKHR Capabilities;
+		std::vector<VkSurfaceFormatKHR> Formats;
+		std::vector<VkPresentModeKHR> PresentModes;
+	};
+
 	class VulkanEngine
 	{
 	public:
 		void Init();
-
 		void Run();
-
 		void Draw();
-
 		void Cleanup();
 
 	private:
@@ -47,7 +50,18 @@ namespace VKE
 		VkQueue m_GraphicsQueue;
 		VkQueue m_PresentQueue;
 
-		const std::vector<const char*> validationLayers =
+		VkSwapchainKHR m_SwapChain;
+		VkFormat m_SwapChainImageFormat;
+		VkExtent2D m_SwapChainExtent;
+		std::vector<VkImage> m_SwapChainImages;
+		std::vector<VkImageView> m_SwapChainImageViews;
+
+		const std::vector<const char*> m_DeviceExtensions = 
+		{
+			VK_KHR_SWAPCHAIN_EXTENSION_NAME
+		};
+
+		const std::vector<const char*> m_ValidationLayers =
 		{
 			"VK_LAYER_KHRONOS_validation"
 		};
@@ -64,10 +78,12 @@ namespace VKE
 		void CreateLogicalDevice();
 		void CreateSwapChain();
 		void CreateImageViews();
+		void CreateRenderPass();
+		void CreateGraphicsPipeline();
 
 		// Extensions.
 		std::vector<const char*> GetRequiredExtensions();
-		bool CheckInstanceExtensionSupport(const std::vector<const char*>& sdlExtensionNames);
+		bool CheckInstanceExtensionSupport(const std::vector<const char*>& glfwExtensionNames);
 
 		// Validation layer check.
 		bool CheckValidationLayerSupport();
@@ -80,5 +96,12 @@ namespace VKE
 		// Physical device set up.
 		bool IsDeviceSuitable(VkPhysicalDevice device);
 		QueueFamilyIndices FindQueueFamilies(VkPhysicalDevice device);
+
+		// Swapchain set up.
+		bool CheckDeviceExtensionSupport(VkPhysicalDevice device);
+		SwapChainSupportDetails QuerySwapChainSupport(VkPhysicalDevice device);
+		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
+		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
+		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 	};
 }
