@@ -4,6 +4,7 @@
 
 #include "VkInit.h"
 #include "VkUtils.h"
+#include "VkMesh.h"
 
 #include <set>
 #include <vector>
@@ -90,6 +91,11 @@ namespace VKE
 		VkPipelineLayout m_TrianglePipelineLayout;
 		VkPipeline m_TrianglePipeline;
 
+		VkPipeline m_MeshPipeline;
+		Mesh m_TriangleMesh;
+
+		VmaAllocator m_Allocator; //vma lib allocator
+
 		const std::vector<const char*> m_DeviceExtensions = 
 		{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -117,6 +123,7 @@ namespace VKE
 		void CreateFrameBuffers();
 		void CreateSyncStructures();
 		void CreateGraphicsPipeline();
+		void CreateAllocator();
 
 		// Extensions.
 		std::vector<const char*> GetRequiredExtensions();
@@ -140,5 +147,8 @@ namespace VKE
 		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+		void LoadMeshes();
+		void UploadMesh(Mesh& mesh);
 	};
 }

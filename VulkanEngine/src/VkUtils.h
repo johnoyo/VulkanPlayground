@@ -10,7 +10,7 @@ namespace VKE
 	class VkUtils
 	{
 	public:
-		// Loads a shader module from a spir-v file. Returns false if it errors
+		// Loads a shader module from a spir-v file. Returns false if it errors.
 		static bool LoadShaderModule(const std::string& filePath, VkDevice device, VkShaderModule* outShaderModule);
 	};
 }
