@@ -20,6 +20,8 @@ namespace VKE
 		InitWindow();
 		InitVulkan();
 		LoadMeshes();
+		LoadBatch1();
+		LoadBatch2();
 	}
 
 	void VulkanEngine::Run()
@@ -96,12 +98,27 @@ namespace VKE
 		// Triagle mesh pipeline.
 		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_MeshPipeline);
 
+		////bind the mesh vertex buffer with offset 0
+		//VkDeviceSize offset = 0;
+		//vkCmdBindVertexBuffers(cmd, 0, 1, &m_TriangleMesh.VertexBuffer.Buffer, &offset);
+
+		////we can now draw the mesh
+		//vkCmdDraw(cmd, m_TriangleMesh.Vertices.size(), 1, 0, 0);
+
 		//bind the mesh vertex buffer with offset 0
 		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmd, 0, 1, &m_TriangleMesh.VertexBuffer.Buffer, &offset);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &m_QuadsBatch1.VertexBuffer.Buffer, &offset);
 
-		//we can now draw the mesh
-		vkCmdDraw(cmd, m_TriangleMesh.Vertices.size(), 1, 0, 0);
+		vkCmdBindIndexBuffer(cmd, m_QuadsBatch1.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+		vkCmdDrawIndexed(cmd, m_QuadsBatch1.Indeces.size(), 1, 0, 0, 0);
+
+		offset = 0;
+		vkCmdBindVertexBuffers(cmd, 0, 1, &m_QuadsBatch2.VertexBuffer.Buffer, &offset);
+
+		vkCmdBindIndexBuffer(cmd, m_QuadsBatch2.IndexBuffer.Buffer, 0, VK_INDEX_TYPE_UINT32);
+
+		vkCmdDrawIndexed(cmd, m_QuadsBatch2.Indeces.size(), 1, 0, 0, 0);
 
 		//finalize the render pass
 		vkCmdEndRenderPass(cmd);
@@ -1032,6 +1049,135 @@ namespace VKE
 		}
 	}
 
+	void VulkanEngine::LoadBatch1()
+	{
+		m_QuadsBatch1.Vertices.resize(8);
+
+		// Vertex positions.
+		m_QuadsBatch1.Vertices[0].Position = { 0.8f, 0.8f, 0.f };
+		m_QuadsBatch1.Vertices[1].Position = {-0.8f, 0.8f, 0.f };
+		m_QuadsBatch1.Vertices[2].Position = {-0.8f,-0.8f, 0.f };
+		m_QuadsBatch1.Vertices[3].Position = { 0.8f,-0.8f, 0.f };
+
+		m_QuadsBatch1.Vertices[4].Position = { 0.6f, 0.6f, 0.f };
+		m_QuadsBatch1.Vertices[5].Position = {-0.6f, 0.6f, 0.f };
+		m_QuadsBatch1.Vertices[6].Position = {-0.6f,-0.6f, 0.f };
+		m_QuadsBatch1.Vertices[7].Position = { 0.6f,-0.6f, 0.f };
+
+		// Vertex colors.
+		m_QuadsBatch1.Vertices[0].Color = { 1.f, 1.f, 0.f };
+		m_QuadsBatch1.Vertices[1].Color = { 1.f, 1.f, 0.f };
+		m_QuadsBatch1.Vertices[2].Color = { 1.f, 1.f, 0.f };
+		m_QuadsBatch1.Vertices[3].Color = { 1.f, 1.f, 0.f };
+
+		m_QuadsBatch1.Vertices[4].Color = { 1.f, 0.f, 0.f };
+		m_QuadsBatch1.Vertices[5].Color = { 1.f, 0.f, 0.f };
+		m_QuadsBatch1.Vertices[6].Color = { 1.f, 0.f, 0.f };
+		m_QuadsBatch1.Vertices[7].Color = { 1.f, 0.f, 0.f };
+
+		m_QuadsBatch1.Indeces.push_back(0);
+		m_QuadsBatch1.Indeces.push_back(1);
+		m_QuadsBatch1.Indeces.push_back(2);
+
+		m_QuadsBatch1.Indeces.push_back(0);
+		m_QuadsBatch1.Indeces.push_back(2);
+		m_QuadsBatch1.Indeces.push_back(3);
+
+		m_QuadsBatch1.Indeces.push_back(4);
+		m_QuadsBatch1.Indeces.push_back(5);
+		m_QuadsBatch1.Indeces.push_back(6);
+
+		m_QuadsBatch1.Indeces.push_back(4);
+		m_QuadsBatch1.Indeces.push_back(6);
+		m_QuadsBatch1.Indeces.push_back(7);
+
+		UploadQuads(m_QuadsBatch1);
+	}
+
+	void VulkanEngine::LoadBatch2()
+	{
+		m_QuadsBatch2.Vertices.resize(8);
+
+		// Vertex positions.
+		m_QuadsBatch2.Vertices[0].Position = { 0.4f, 0.4f, 0.f };
+		m_QuadsBatch2.Vertices[1].Position = {-0.4f, 0.4f, 0.f };
+		m_QuadsBatch2.Vertices[2].Position = {-0.4f,-0.4f, 0.f };
+		m_QuadsBatch2.Vertices[3].Position = { 0.4f,-0.4f, 0.f };
+					
+		m_QuadsBatch2.Vertices[4].Position = { 0.2f, 0.2f, 0.f };
+		m_QuadsBatch2.Vertices[5].Position = {-0.2f, 0.2f, 0.f };
+		m_QuadsBatch2.Vertices[6].Position = {-0.2f,-0.2f, 0.f };
+		m_QuadsBatch2.Vertices[7].Position = { 0.2f,-0.2f, 0.f };
+
+		// Vertex colors.
+		m_QuadsBatch2.Vertices[0].Color = { 0.f, 0.f, 1.f };
+		m_QuadsBatch2.Vertices[1].Color = { 0.f, 0.f, 1.f };
+		m_QuadsBatch2.Vertices[2].Color = { 0.f, 0.f, 1.f };
+		m_QuadsBatch2.Vertices[3].Color = { 0.f, 0.f, 1.f };
+					
+		m_QuadsBatch2.Vertices[4].Color = { 1.f, 0.f, 1.f };
+		m_QuadsBatch2.Vertices[5].Color = { 1.f, 0.f, 1.f };
+		m_QuadsBatch2.Vertices[6].Color = { 1.f, 0.f, 1.f };
+		m_QuadsBatch2.Vertices[7].Color = { 1.f, 0.f, 1.f };
+					
+		m_QuadsBatch2.Indeces.push_back(0);
+		m_QuadsBatch2.Indeces.push_back(1);
+		m_QuadsBatch2.Indeces.push_back(2);
+					
+		m_QuadsBatch2.Indeces.push_back(0);
+		m_QuadsBatch2.Indeces.push_back(2);
+		m_QuadsBatch2.Indeces.push_back(3);
+					
+		m_QuadsBatch2.Indeces.push_back(4);
+		m_QuadsBatch2.Indeces.push_back(5);
+		m_QuadsBatch2.Indeces.push_back(6);
+					
+		m_QuadsBatch2.Indeces.push_back(4);
+		m_QuadsBatch2.Indeces.push_back(6);
+		m_QuadsBatch2.Indeces.push_back(7);
+
+		UploadQuads(m_QuadsBatch2);
+	}
+
+	void VulkanEngine::UploadQuads(Mesh& mesh)
+	{
+		// Allocate vertex buffer.
+		VkBufferCreateInfo vertexBufferInfo = {};
+		vertexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		vertexBufferInfo.size = mesh.Vertices.size() * sizeof(Vertex);
+		vertexBufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+
+		VmaAllocationCreateInfo vmaAllocationInfo = {};
+		vmaAllocationInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+		// Allocate buffer.
+		VkResult result = vmaCreateBuffer(m_Allocator, &vertexBufferInfo, &vmaAllocationInfo, &mesh.VertexBuffer.Buffer, &mesh.VertexBuffer.Allocation, nullptr);
+		assert(result == VK_SUCCESS);
+
+		void* vertexData;
+		vmaMapMemory(m_Allocator, mesh.VertexBuffer.Allocation, &vertexData);
+		memcpy(vertexData, mesh.Vertices.data(), mesh.Vertices.size() * sizeof(Vertex));
+		vmaUnmapMemory(m_Allocator, mesh.VertexBuffer.Allocation);
+
+		// Allocate index buffer.
+		VkBufferCreateInfo indexBufferInfo = {};
+		indexBufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		indexBufferInfo.size = mesh.Indeces.size() * sizeof(uint32_t);
+		indexBufferInfo.usage = VK_BUFFER_USAGE_INDEX_BUFFER_BIT;
+
+		vmaAllocationInfo = {};
+		vmaAllocationInfo.usage = VMA_MEMORY_USAGE_CPU_TO_GPU;
+
+		// Allocate buffer.
+		result = vmaCreateBuffer(m_Allocator, &indexBufferInfo, &vmaAllocationInfo, &mesh.IndexBuffer.Buffer, &mesh.IndexBuffer.Allocation, nullptr);
+		assert(result == VK_SUCCESS);
+
+		void* indexData;
+		vmaMapMemory(m_Allocator, mesh.IndexBuffer.Allocation, &indexData);
+		memcpy(indexData, mesh.Indeces.data(), mesh.Indeces.size() * sizeof(uint32_t));
+		vmaUnmapMemory(m_Allocator, mesh.IndexBuffer.Allocation);
+	}
+
 	void VulkanEngine::LoadMeshes()
 	{
 		m_TriangleMesh.Vertices.resize(3);
@@ -1042,9 +1188,9 @@ namespace VKE
 		m_TriangleMesh.Vertices[2].Position = { 0.f,-1.f, 0.f };
 
 		// Vertex colors.
-		m_TriangleMesh.Vertices[0].Color = { 0.f, 1.f, 0.f };
+		m_TriangleMesh.Vertices[0].Color = { 1.f, 0.f, 0.f };
 		m_TriangleMesh.Vertices[1].Color = { 0.f, 1.f, 0.f };
-		m_TriangleMesh.Vertices[2].Color = { 0.f, 1.f, 0.f };
+		m_TriangleMesh.Vertices[2].Color = { 0.f, 0.f, 1.f };
 
 		UploadMesh(m_TriangleMesh);
 	}

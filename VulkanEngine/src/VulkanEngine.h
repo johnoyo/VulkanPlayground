@@ -93,6 +93,8 @@ namespace VKE
 
 		VkPipeline m_MeshPipeline;
 		Mesh m_TriangleMesh;
+		Mesh m_QuadsBatch1;
+		Mesh m_QuadsBatch2;
 
 		VmaAllocator m_Allocator; //vma lib allocator
 
@@ -148,6 +150,9 @@ namespace VKE
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
 
+		void LoadBatch1();
+		void LoadBatch2();
+		void UploadQuads(Mesh& mesh);
 		void LoadMeshes();
 		void UploadMesh(Mesh& mesh);
 	};

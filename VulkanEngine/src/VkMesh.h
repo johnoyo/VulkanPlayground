@@ -27,6 +27,8 @@ namespace VKE
 	struct Mesh
 	{
 		std::vector<Vertex> Vertices;
+		std::vector<uint32_t> Indeces;
 		AllocatedBuffer VertexBuffer;
+		AllocatedBuffer IndexBuffer;
 	};
 }
