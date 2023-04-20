@@ -14,5 +14,12 @@ namespace VKE
 		static VkPipelineMultisampleStateCreateInfo MultisamplingStateCreateInfo();
 		static VkPipelineColorBlendAttachmentState ColorBlendAttachmentState();
 		static VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo();
+
+		static VkImageCreateInfo ImageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
+		static VkImageViewCreateInfo ImageViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
+
+		static VkPipelineDepthStencilStateCreateInfo DepthStencilCreateInfo(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
+
+		static VkRenderPassBeginInfo RenderPassBeginInfo(VkRenderPass renderPass, VkExtent2D extends, VkFramebuffer framebuffer);
 	};
 }

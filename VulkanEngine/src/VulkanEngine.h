@@ -16,8 +16,17 @@
 #include <limits>
 #include <algorithm>
 
+#include <glm/glm.hpp>
+#include <glm/gtx/transform.hpp>
+
 namespace VKE
 {
+	struct MeshPushConstants 
+	{
+		glm::vec4 data;
+		glm::mat4 renderMatrix;
+	};
+
 	struct QueueFamilyIndices
 	{
 		std::optional<uint32_t> graphicsFamily;
@@ -48,6 +57,8 @@ namespace VKE
 		VkPipelineColorBlendAttachmentState m_ColorBlendAttachment;
 		VkPipelineMultisampleStateCreateInfo m_Multisampling;
 		VkPipelineLayout m_PipelineLayout;
+
+		VkPipelineDepthStencilStateCreateInfo m_DepthStencil;
 
 		VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
 	};
@@ -80,6 +91,12 @@ namespace VKE
 		VkCommandPool m_CommandPool; //the command pool for our commands
 		VkCommandBuffer m_MainCommandBuffer; //the buffer we will record into
 
+		VkImageView m_DepthImageView;
+		AllocatedImage m_DepthImage;
+
+		//the format for the depth image
+		VkFormat m_DepthFormat;
+
 		VkRenderPass m_RenderPass;
 		std::vector<VkFramebuffer> m_FrameBuffers;
 
@@ -92,7 +109,10 @@ namespace VKE
 		VkPipeline m_TrianglePipeline;
 
 		VkPipeline m_MeshPipeline;
+		VkPipelineLayout m_MeshPipelineLayout;
 		Mesh m_TriangleMesh;
+
+		Mesh m_MonkeyMesh;
 
 		VmaAllocator m_Allocator; //vma lib allocator
 

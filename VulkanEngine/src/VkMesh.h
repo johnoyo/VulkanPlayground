@@ -3,6 +3,8 @@
 #include "VkTypes.h"
 
 #include <glm\vec3.hpp>
+
+#include <iostream>
 #include <vector>
 
 namespace VKE
@@ -28,5 +30,7 @@ namespace VKE
 	{
 		std::vector<Vertex> Vertices;
 		AllocatedBuffer VertexBuffer;
+
+		bool LoadFromObj(const char* filename);
 	};
 }

@@ -66,24 +66,23 @@ namespace VKE
 
 		// Make a clear-color from frame number. This will flash with a 120*pi frame period.
 		VkClearValue clearValue;
-		float flash = std::abs(std::sin(m_FrameNumber / 120.f));
+		float flash = std::abs(std::sin(m_FrameNumber / 220.f));
 		clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
+
+		//clear depth at 1
+		VkClearValue depthClear;
+		depthClear.depthStencil.depth = 1.f;
 
 		// Start the main renderpass.
 		// We will use the clear color from above, and the framebuffer of the index the swapchain gave us
-		VkRenderPassBeginInfo rpInfo = {};
-		rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
-		rpInfo.pNext = nullptr;
-
-		rpInfo.renderPass = m_RenderPass;
-		rpInfo.renderArea.offset.x = 0;
-		rpInfo.renderArea.offset.y = 0;
-		rpInfo.renderArea.extent = m_SwapChainExtent;
-		rpInfo.framebuffer = m_FrameBuffers[swapchainImageIndex];
+		VkRenderPassBeginInfo rpInfo = VkInit::RenderPassBeginInfo(m_RenderPass, m_SwapChainExtent, m_FrameBuffers[swapchainImageIndex]);
 
 		//connect clear values
-		rpInfo.clearValueCount = 1;
-		rpInfo.pClearValues = &clearValue;
+		rpInfo.clearValueCount = 2;
+
+		VkClearValue clearValues[] = { clearValue, depthClear };
+
+		rpInfo.pClearValues = &clearValues[0];
 
 		vkCmdBeginRenderPass(cmd, &rpInfo, VK_SUBPASS_CONTENTS_INLINE);
 
@@ -98,10 +97,32 @@ namespace VKE
 
 		//bind the mesh vertex buffer with offset 0
 		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmd, 0, 1, &m_TriangleMesh.VertexBuffer.Buffer, &offset);
+		vkCmdBindVertexBuffers(cmd, 0, 1, &m_MonkeyMesh.VertexBuffer.Buffer, &offset);
+
+		//make a model view matrix for rendering the object
+		//camera position
+		glm::vec3 camPos = { 0.f,0.f,-3.f };
+
+		glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+
+		//camera projection
+		glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+		projection[1][1] *= -1;
+
+		//model rotation
+		glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(m_FrameNumber * 0.05f), glm::vec3(0, 1, 0));
+
+		//calculate final mesh matrix
+		glm::mat4 mesh_matrix = projection * view * model;
+
+		MeshPushConstants constants;
+		constants.renderMatrix = mesh_matrix;
+
+		//upload the matrix to the GPU via push constants
+		vkCmdPushConstants(cmd, m_MeshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
 
 		//we can now draw the mesh
-		vkCmdDraw(cmd, m_TriangleMesh.Vertices.size(), 1, 0, 0);
+		vkCmdDraw(cmd, m_MonkeyMesh.Vertices.size(), 1, 0, 0);
 
 		//finalize the render pass
 		vkCmdEndRenderPass(cmd);
@@ -170,6 +191,8 @@ namespace VKE
 
 		vkDestroyPipelineLayout(m_Device, m_TrianglePipelineLayout, nullptr);
 
+		vkDestroyPipelineLayout(m_Device, m_MeshPipelineLayout, nullptr);
+
 		vkDestroyPipeline(m_Device, m_TrianglePipeline, nullptr);
 
 		vkDestroyPipeline(m_Device, m_MeshPipeline, nullptr);
@@ -179,6 +202,9 @@ namespace VKE
 			vkDestroyFramebuffer(m_Device, m_FrameBuffers[i], nullptr);
 			vkDestroyImageView(m_Device, m_SwapChainImageViews[i], nullptr);
 		}
+
+		vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
+		vmaDestroyImage(m_Allocator, m_DepthImage.Image, m_DepthImage.Allocation);
 
 		vkDestroyFence(m_Device, m_RenderFence, nullptr);
 
@@ -216,6 +242,9 @@ namespace VKE
 		CreateSurface();
 		SelectPhysicalDevice();
 		CreateLogicalDevice();
+
+		CreateAllocator();
+
 		CreateSwapChain();
 		CreateImageViews();
 		CreateCommands();
@@ -223,7 +252,6 @@ namespace VKE
 		CreateFrameBuffers();
 		CreateSyncStructures();
 		CreateGraphicsPipeline();
-		CreateAllocator();
 	}
 
 	void VulkanEngine::CreateInstance()
@@ -423,6 +451,33 @@ namespace VKE
 
 		m_SwapChainImageFormat = surfaceFormat.format;
 		m_SwapChainExtent = extent;
+
+		//depth image size will match the window
+		VkExtent3D depthImageExtent = {
+			m_SwapChainExtent.width,
+			m_SwapChainExtent.height,
+			1
+		};
+
+		//hardcoding the depth format to 32 bit float
+		m_DepthFormat = VK_FORMAT_D32_SFLOAT;
+
+		//the depth image will be an image with the format we selected and Depth Attachment usage flag
+		VkImageCreateInfo dimg_info = VkInit::ImageCreateInfo(m_DepthFormat, VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT, depthImageExtent);
+
+		//for the depth image, we want to allocate it from GPU local memory
+		VmaAllocationCreateInfo dimg_allocinfo = {};
+		dimg_allocinfo.usage = VMA_MEMORY_USAGE_GPU_ONLY;
+		dimg_allocinfo.requiredFlags = VkMemoryPropertyFlags(VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT);
+
+		//allocate and create the image
+		vmaCreateImage(m_Allocator, &dimg_info, &dimg_allocinfo, &m_DepthImage.Image, &m_DepthImage.Allocation, nullptr);
+
+		//build an image-view for the depth image to use for rendering
+		VkImageViewCreateInfo dview_info = VkInit::ImageViewCreateInfo(m_DepthFormat, m_DepthImage.Image, VK_IMAGE_ASPECT_DEPTH_BIT);
+
+		result = vkCreateImageView(m_Device, &dview_info, nullptr, &m_DepthImageView);
+		assert(result == VK_SUCCESS);
 	}
 
 	void VulkanEngine::CreateImageViews()
@@ -514,21 +569,62 @@ namespace VKE
 		colorAttachmentRef.attachment = 0;
 		colorAttachmentRef.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
 
+		VkAttachmentDescription depthAttachment = {};
+		// Depth attachment
+		depthAttachment.flags = 0;
+		depthAttachment.format = m_DepthFormat;
+		depthAttachment.samples = VK_SAMPLE_COUNT_1_BIT;
+		depthAttachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+		depthAttachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+		depthAttachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+		depthAttachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+		depthAttachment.finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+		VkAttachmentReference depthAttachmentRef = {};
+		depthAttachmentRef.attachment = 1;
+		depthAttachmentRef.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
 		//we are going to create 1 subpass, which is the minimum you can do
 		VkSubpassDescription subpass = {};
 		subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
 		subpass.colorAttachmentCount = 1;
 		subpass.pColorAttachments = &colorAttachmentRef;
+		//hook the depth attachment into the subpass
+		subpass.pDepthStencilAttachment = &depthAttachmentRef;
+
+		//array of 2 attachments, one for the color, and other for depth
+		VkAttachmentDescription attachments[2] = { colorAttachment, depthAttachment };
 
 		VkRenderPassCreateInfo renderPassInfo = {};
 		renderPassInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
 
-		//connect the color attachment to the info
-		renderPassInfo.attachmentCount = 1;
-		renderPassInfo.pAttachments = &colorAttachment;
-		//connect the subpass to the info
+		//2 attachments from said array
+		renderPassInfo.attachmentCount = 2;
+		renderPassInfo.pAttachments = &attachments[0];
 		renderPassInfo.subpassCount = 1;
 		renderPassInfo.pSubpasses = &subpass;
+
+		VkSubpassDependency dependency = {};
+		dependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		dependency.dstSubpass = 0;
+		dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.srcAccessMask = 0;
+		dependency.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+		dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+
+		VkSubpassDependency depthDependency = {};
+		depthDependency.srcSubpass = VK_SUBPASS_EXTERNAL;
+		depthDependency.dstSubpass = 0;
+		depthDependency.srcStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		depthDependency.srcAccessMask = 0;
+		depthDependency.dstStageMask = VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT | VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT;
+		depthDependency.dstAccessMask = VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT;
+
+		VkSubpassDependency dependencies[2] = { dependency, depthDependency };
+				
+		renderPassInfo.dependencyCount = 2;
+		renderPassInfo.pDependencies = &dependencies[0];
 
 		VkResult result = vkCreateRenderPass(m_Device, &renderPassInfo, nullptr, &m_RenderPass);
 		assert(result == VK_SUCCESS);
@@ -554,7 +650,13 @@ namespace VKE
 		// Create framebuffers for each of the swapchain image views.
 		for (int i = 0; i < swapChainImageCount; i++) 
 		{
-			frameBufferInfo.pAttachments = &m_SwapChainImageViews[i];
+			VkImageView attachments[2];
+			attachments[0] = m_SwapChainImageViews[i];
+			attachments[1] = m_DepthImageView;
+
+			frameBufferInfo.pAttachments = attachments;
+			frameBufferInfo.attachmentCount = 2;
+
 			VkResult result = vkCreateFramebuffer(m_Device, &frameBufferInfo, nullptr, &m_FrameBuffers[i]);
 			assert(result == VK_SUCCESS);
 		}
@@ -652,6 +754,8 @@ namespace VKE
 		//use the triangle layout we created
 		pipelineBuilder.m_PipelineLayout = m_TrianglePipelineLayout;
 
+		pipelineBuilder.m_DepthStencil = VkInit::DepthStencilCreateInfo(true, true, VK_COMPARE_OP_LESS_OR_EQUAL);
+
 		//finally build the pipeline
 		m_TrianglePipeline = pipelineBuilder.BuildPipeline(m_Device, m_RenderPass);
 
@@ -694,6 +798,26 @@ namespace VKE
 		//make sure that triangleFragShader is holding the compiled colored_triangle.frag
 		pipelineBuilder.m_ShaderStages.push_back(VkInit::PipelineShaderStageCreateInfo(VK_SHADER_STAGE_FRAGMENT_BIT, meshFragShader));
 
+		//we start from just the default empty pipeline layout info
+		VkPipelineLayoutCreateInfo meshPipelineLayoutInfo = VkInit::PipelineLayoutCreateInfo();
+
+		//setup push constants
+		VkPushConstantRange pushConstant;
+		//this push constant range starts at the beginning
+		pushConstant.offset = 0;
+		//this push constant range takes up the size of a MeshPushConstants struct
+		pushConstant.size = sizeof(MeshPushConstants);
+		//this push constant range is accessible only in the vertex shader
+		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
+		meshPipelineLayoutInfo.pushConstantRangeCount = 1;
+
+		result = vkCreatePipelineLayout(m_Device, &meshPipelineLayoutInfo, nullptr, &m_MeshPipelineLayout);
+		assert(result == VK_SUCCESS);
+
+		pipelineBuilder.m_PipelineLayout = m_MeshPipelineLayout;
+
 		//build the mesh triangle pipeline
 		m_MeshPipeline = pipelineBuilder.BuildPipeline(m_Device, m_RenderPass);
 
@@ -702,6 +826,7 @@ namespace VKE
 		vkDestroyShaderModule(m_Device, meshFragShader, nullptr);
 		vkDestroyShaderModule(m_Device, triangleFragShader, nullptr);
 		vkDestroyShaderModule(m_Device, triangleVertexShader, nullptr);
+
 	}
 
 	void VulkanEngine::CreateAllocator()
@@ -1018,6 +1143,7 @@ namespace VKE
 		pipelineInfo.renderPass = pass;
 		pipelineInfo.subpass = 0;
 		pipelineInfo.basePipelineHandle = VK_NULL_HANDLE;
+		pipelineInfo.pDepthStencilState = &m_DepthStencil;
 
 		//it's easy to error out on create graphics pipeline, so we handle it a bit better than the common VK_CHECK case
 		VkPipeline newPipeline;
@@ -1046,7 +1172,11 @@ namespace VKE
 		m_TriangleMesh.Vertices[1].Color = { 0.f, 1.f, 0.f };
 		m_TriangleMesh.Vertices[2].Color = { 0.f, 1.f, 0.f };
 
+		//load the monkey
+		m_MonkeyMesh.LoadFromObj("res/assets/monkey_smooth.obj");
+
 		UploadMesh(m_TriangleMesh);
+		UploadMesh(m_MonkeyMesh);
 	}
 
 	void VulkanEngine::UploadMesh(Mesh& mesh)

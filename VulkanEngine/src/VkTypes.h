@@ -12,4 +12,10 @@ namespace VKE
 		VmaAllocation Allocation;
 	};
 
+	struct AllocatedImage 
+	{
+		VkImage Image;
+		VmaAllocation Allocation;
+	};
+
 }
