@@ -15,12 +15,28 @@
 #include <cstdint>
 #include <limits>
 #include <algorithm>
+#include <unordered_map>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
 
 namespace VKE
 {
+	struct Material 
+	{
+		VkPipeline pipeline;
+		VkPipelineLayout pipelineLayout;
+	};
+
+	struct RenderObject 
+	{
+		Mesh* mesh;
+
+		Material* material;
+
+		glm::mat4 transformMatrix;
+	};
+
 	struct MeshPushConstants 
 	{
 		glm::vec4 data;
@@ -70,6 +86,21 @@ namespace VKE
 		void Run();
 		void Draw();
 		void Cleanup();
+
+	public:
+		std::vector<RenderObject> m_Renderables;
+
+		std::unordered_map<std::string, Material> m_Materials;
+		std::unordered_map<std::string, Mesh> m_Meshes;
+
+		//create material and add it to the map
+		Material* CreateMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name);
+		//returns nullptr if it can't be found
+		Material* GetMaterial(const std::string& name);
+		//returns nullptr if it can't be found
+		Mesh* GetMesh(const std::string& name);
+		//our draw function
+		void DrawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
 
 	private:
 		GLFWwindow* m_Window;
@@ -170,5 +201,6 @@ namespace VKE
 
 		void LoadMeshes();
 		void UploadMesh(Mesh& mesh);
+		void InitScene();
 	};
 }

@@ -20,6 +20,8 @@ namespace VKE
 		InitWindow();
 		InitVulkan();
 		LoadMeshes();
+
+		InitScene();
 	}
 
 	void VulkanEngine::Run()
@@ -92,37 +94,39 @@ namespace VKE
 		//vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_TrianglePipeline);
 		//vkCmdDraw(cmd, 3, 1, 0, 0);
 
-		// Triagle mesh pipeline.
-		vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_MeshPipeline);
+		//// Triagle mesh pipeline.
+		//vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, m_MeshPipeline);
 
-		//bind the mesh vertex buffer with offset 0
-		VkDeviceSize offset = 0;
-		vkCmdBindVertexBuffers(cmd, 0, 1, &m_MonkeyMesh.VertexBuffer.Buffer, &offset);
+		////bind the mesh vertex buffer with offset 0
+		//VkDeviceSize offset = 0;
+		//vkCmdBindVertexBuffers(cmd, 0, 1, &m_MonkeyMesh.VertexBuffer.Buffer, &offset);
 
-		//make a model view matrix for rendering the object
-		//camera position
-		glm::vec3 camPos = { 0.f,0.f,-3.f };
+		////make a model view matrix for rendering the object
+		////camera position
+		//glm::vec3 camPos = { 0.f,0.f,-3.f };
 
-		glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+		//glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
 
-		//camera projection
-		glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
-		projection[1][1] *= -1;
+		////camera projection
+		//glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+		//projection[1][1] *= -1;
 
-		//model rotation
-		glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(m_FrameNumber * 0.05f), glm::vec3(0, 1, 0));
+		////model rotation
+		//glm::mat4 model = glm::rotate(glm::mat4{ 1.0f }, glm::radians(m_FrameNumber * 0.05f), glm::vec3(0, 1, 0));
 
-		//calculate final mesh matrix
-		glm::mat4 mesh_matrix = projection * view * model;
+		////calculate final mesh matrix
+		//glm::mat4 mesh_matrix = projection * view * model;
 
-		MeshPushConstants constants;
-		constants.renderMatrix = mesh_matrix;
+		//MeshPushConstants constants;
+		//constants.renderMatrix = mesh_matrix;
 
-		//upload the matrix to the GPU via push constants
-		vkCmdPushConstants(cmd, m_MeshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
+		////upload the matrix to the GPU via push constants
+		//vkCmdPushConstants(cmd, m_MeshPipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
 
-		//we can now draw the mesh
-		vkCmdDraw(cmd, m_MonkeyMesh.Vertices.size(), 1, 0, 0);
+		////we can now draw the mesh
+		//vkCmdDraw(cmd, m_MonkeyMesh.Vertices.size(), 1, 0, 0);
+
+		DrawObjects(cmd, m_Renderables.data(), m_Renderables.size());
 
 		//finalize the render pass
 		vkCmdEndRenderPass(cmd);
@@ -821,12 +825,13 @@ namespace VKE
 		//build the mesh triangle pipeline
 		m_MeshPipeline = pipelineBuilder.BuildPipeline(m_Device, m_RenderPass);
 
+		CreateMaterial(m_MeshPipeline, m_MeshPipelineLayout, "defaultMesh");
+
 		//deleting all of the vulkan shaders
 		vkDestroyShaderModule(m_Device, meshVertShader, nullptr);
 		vkDestroyShaderModule(m_Device, meshFragShader, nullptr);
 		vkDestroyShaderModule(m_Device, triangleFragShader, nullptr);
 		vkDestroyShaderModule(m_Device, triangleVertexShader, nullptr);
-
 	}
 
 	void VulkanEngine::CreateAllocator()
@@ -1177,6 +1182,9 @@ namespace VKE
 
 		UploadMesh(m_TriangleMesh);
 		UploadMesh(m_MonkeyMesh);
+
+		m_Meshes["monkey"] = m_MonkeyMesh;
+		m_Meshes["triangle"] = m_TriangleMesh;
 	}
 
 	void VulkanEngine::UploadMesh(Mesh& mesh)
@@ -1198,5 +1206,112 @@ namespace VKE
 		vmaMapMemory(m_Allocator, mesh.VertexBuffer.Allocation, &data);
 		memcpy(data, mesh.Vertices.data(), mesh.Vertices.size() * sizeof(Vertex));
 		vmaUnmapMemory(m_Allocator, mesh.VertexBuffer.Allocation);
+	}
+
+	void VulkanEngine::InitScene()
+	{
+		RenderObject monkey;
+		monkey.mesh = GetMesh("monkey");
+		monkey.material = GetMaterial("defaultMesh");
+		monkey.transformMatrix = glm::mat4{ 1.0f };
+
+		m_Renderables.push_back(monkey);
+
+		for (int x = -20; x <= 20; x++) {
+			for (int y = -20; y <= 20; y++) {
+
+				RenderObject triangle;
+				triangle.mesh = GetMesh("triangle");
+				triangle.material = GetMaterial("defaultMesh");
+				glm::mat4 translation = glm::translate(glm::mat4{ 1.0 }, glm::vec3(x, 0, y));
+				glm::mat4 scale = glm::scale(glm::mat4{ 1.0 }, glm::vec3(0.2, 0.2, 0.2));
+				triangle.transformMatrix = translation * scale;
+
+				m_Renderables.push_back(triangle);
+			}
+		}
+	}
+
+	Material* VulkanEngine::CreateMaterial(VkPipeline pipeline, VkPipelineLayout layout, const std::string& name)
+	{
+		Material mat;
+		mat.pipeline = pipeline;
+		mat.pipelineLayout = layout;
+		m_Materials[name] = mat;
+		return &m_Materials[name];
+	}
+
+	Material* VulkanEngine::GetMaterial(const std::string& name)
+	{
+		//search for the object, and return nullptr if not found
+		auto it = m_Materials.find(name);
+		if (it == m_Materials.end()) {
+			return nullptr;
+		}
+		else {
+			return &(*it).second;
+		}
+	}
+
+
+	Mesh* VulkanEngine::GetMesh(const std::string& name)
+	{
+		auto it = m_Meshes.find(name);
+		if (it == m_Meshes.end()) {
+			return nullptr;
+		}
+		else {
+			return &(*it).second;
+		}
+	}
+
+
+	void VulkanEngine::DrawObjects(VkCommandBuffer cmd, RenderObject* first, int count)
+	{
+		//make a model view matrix for rendering the object
+		//camera view
+		glm::vec3 camPos = { 0.f,-4.f,-10.f };
+
+		glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
+		//camera projection
+		glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
+		projection[1][1] *= -1;
+
+		Mesh* lastMesh = nullptr;
+		Material* lastMaterial = nullptr;
+
+		for (int i = 0; i < count; i++)
+		{
+			RenderObject& object = first[i];
+
+			//only bind the pipeline if it doesn't match with the already bound one
+			if (object.material != lastMaterial) 
+			{
+				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
+				lastMaterial = object.material;
+			}
+
+			glm::mat4 model = object.transformMatrix;
+			//final render matrix, that we are calculating on the cpu
+			glm::mat4 mesh_matrix = projection * view * model;
+
+			MeshPushConstants constants;
+			constants.renderMatrix = mesh_matrix;
+
+			//upload the mesh to the GPU via push constants
+			vkCmdPushConstants(cmd, object.material->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
+
+			//only bind the mesh if it's a different one from last bind
+			if (object.mesh != lastMesh) 
+			{
+				//bind the mesh vertex buffer with offset 0
+				VkDeviceSize offset = 0;
+				vkCmdBindVertexBuffers(cmd, 0, 1, &object.mesh->VertexBuffer.Buffer, &offset);
+				lastMesh = object.mesh;
+			}
+
+			//we can now draw
+			vkCmdDraw(cmd, object.mesh->Vertices.size(), 1, 0, 0);
+		}
 	}
 }
