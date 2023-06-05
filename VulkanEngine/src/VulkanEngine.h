@@ -16,6 +16,8 @@
 #include <limits>
 #include <algorithm>
 #include <unordered_map>
+#include <deque>
+#include <functional>
 
 #include <glm/glm.hpp>
 #include <glm/gtx/transform.hpp>
@@ -42,6 +44,18 @@ namespace VKE
 		glm::vec4 data;
 		glm::mat4 renderMatrix;
 	};
+
+	struct FrameData 
+	{
+		VkSemaphore m_PresentSemaphore, m_RenderSemaphore;
+		VkFence m_RenderFence;
+
+		VkCommandPool m_CommandPool;
+		VkCommandBuffer m_MainCommandBuffer;
+	};
+
+	//number of frames to overlap when rendering
+	constexpr unsigned int FRAME_OVERLAP = 2;
 
 	struct QueueFamilyIndices
 	{
@@ -79,6 +93,24 @@ namespace VKE
 		VkPipeline BuildPipeline(VkDevice device, VkRenderPass pass);
 	};
 
+	struct DeletionQueue
+	{
+		std::deque<std::function<void()>> deletors;
+
+		void push_function(std::function<void()>&& function) {
+			deletors.push_back(function);
+		}
+
+		void flush() {
+			// reverse iterate the deletion queue to execute all the functions
+			for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+				(*it)(); //call the function
+			}
+
+			deletors.clear();
+		}
+	};
+
 	class VulkanEngine
 	{
 	public:
@@ -101,6 +133,11 @@ namespace VKE
 		Mesh* GetMesh(const std::string& name);
 		//our draw function
 		void DrawObjects(VkCommandBuffer cmd, RenderObject* first, int count);
+
+		//frame storage
+		FrameData m_Frames[FRAME_OVERLAP];
+		//getter for the frame we are rendering to right now.
+		FrameData& GetCurrentFrame();
 
 	private:
 		GLFWwindow* m_Window;
@@ -158,6 +195,8 @@ namespace VKE
 		};
 
 		const bool m_EnableValidationLayers = true;
+
+		DeletionQueue m_MainDeletionQueue;
 
 		void InitWindow();
 		void InitVulkan();

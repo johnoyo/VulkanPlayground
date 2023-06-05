@@ -39,21 +39,21 @@ namespace VKE
 		VkResult result;
 
 		// Wait until the GPU has finished rendering the last frame. Timeout of 1 second
-		result = vkWaitForFences(m_Device, 1, &m_RenderFence, true, 1000000000);
+		result = vkWaitForFences(m_Device, 1, &GetCurrentFrame().m_RenderFence, true, 1000000000);
 		assert(result == VK_SUCCESS);
 
-		result = vkResetFences(m_Device, 1, &m_RenderFence);
+		result = vkResetFences(m_Device, 1, &GetCurrentFrame().m_RenderFence);
 		assert(result == VK_SUCCESS);
 
 		uint32_t swapchainImageIndex;
-		result = vkAcquireNextImageKHR(m_Device, m_SwapChain, 1000000000, m_PresentSemaphore, nullptr, &swapchainImageIndex);
+		result = vkAcquireNextImageKHR(m_Device, m_SwapChain, 1000000000, GetCurrentFrame().m_PresentSemaphore, nullptr, &swapchainImageIndex);
 		assert(result == VK_SUCCESS);
 
 		// Now that we are sure that the commands finished executing, we can safely reset the command buffer to begin recording again.
-		result = vkResetCommandBuffer(m_MainCommandBuffer, 0);
+		result = vkResetCommandBuffer(GetCurrentFrame().m_MainCommandBuffer, 0);
 		assert(result == VK_SUCCESS);
 
-		VkCommandBuffer cmd = m_MainCommandBuffer;
+		VkCommandBuffer cmd = GetCurrentFrame().m_MainCommandBuffer;
 
 		// Begin the command buffer recording. We will use this command buffer exactly once, so we want to let Vulkan know that
 		VkCommandBufferBeginInfo cmdBeginInfo = {};
@@ -148,17 +148,17 @@ namespace VKE
 		submit.pWaitDstStageMask = &waitStage;
 
 		submit.waitSemaphoreCount = 1;
-		submit.pWaitSemaphores = &m_PresentSemaphore;
+		submit.pWaitSemaphores = &GetCurrentFrame().m_PresentSemaphore;
 
 		submit.signalSemaphoreCount = 1;
-		submit.pSignalSemaphores = &m_RenderSemaphore;
+		submit.pSignalSemaphores = &GetCurrentFrame().m_RenderSemaphore;
 
 		submit.commandBufferCount = 1;
 		submit.pCommandBuffers = &cmd;
 
 		//submit command buffer to the queue and execute it.
 		// _renderFence will now block until the graphic commands finish execution
-		result = vkQueueSubmit(m_GraphicsQueue, 1, &submit, m_RenderFence);
+		result = vkQueueSubmit(m_GraphicsQueue, 1, &submit, GetCurrentFrame().m_RenderFence);
 		assert(result == VK_SUCCESS);
 
 		// this will put the image we just rendered into the visible window.
@@ -171,7 +171,7 @@ namespace VKE
 		presentInfo.pSwapchains = &m_SwapChain;
 		presentInfo.swapchainCount = 1;
 
-		presentInfo.pWaitSemaphores = &m_RenderSemaphore;
+		presentInfo.pWaitSemaphores = &GetCurrentFrame().m_RenderSemaphore;
 		presentInfo.waitSemaphoreCount = 1;
 
 		presentInfo.pImageIndices = &swapchainImageIndex;
@@ -187,7 +187,7 @@ namespace VKE
 	{
 		vkDeviceWaitIdle(m_Device);
 
-		vkDestroyCommandPool(m_Device, m_CommandPool, nullptr);
+		m_MainDeletionQueue.flush();
 
 		vkDestroySwapchainKHR(m_Device, m_SwapChain, nullptr);
 
@@ -210,10 +210,7 @@ namespace VKE
 		vkDestroyImageView(m_Device, m_DepthImageView, nullptr);
 		vmaDestroyImage(m_Allocator, m_DepthImage.Image, m_DepthImage.Allocation);
 
-		vkDestroyFence(m_Device, m_RenderFence, nullptr);
-
-		vkDestroySemaphore(m_Device, m_PresentSemaphore, nullptr);
-		vkDestroySemaphore(m_Device, m_RenderSemaphore, nullptr);
+		vmaDestroyAllocator(m_Allocator);
 
 		vkDestroyDevice(m_Device, nullptr);
 		vkDestroySurfaceKHR(m_Instance, m_Surface, nullptr);
@@ -515,35 +512,28 @@ namespace VKE
 
 	void VulkanEngine::CreateCommands()
 	{
-		//create a command pool for commands submitted to the graphics queue.
-		VkCommandPoolCreateInfo commandPoolInfo = {};
-		commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
-		commandPoolInfo.pNext = nullptr;
-
 		QueueFamilyIndices indices = FindQueueFamilies(m_PhysicalDevice);
 
-		//the command pool will be one that can submit graphics commands
-		commandPoolInfo.queueFamilyIndex = indices.graphicsFamily.value();
+		//create a command pool for commands submitted to the graphics queue.
 		//we also want the pool to allow for resetting of individual command buffers
-		commandPoolInfo.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+		VkCommandPoolCreateInfo commandPoolInfo = VkInit::CommandPoolCreateInfo(indices.graphicsFamily.value(), VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT);
 
-		VkResult result = vkCreateCommandPool(m_Device, &commandPoolInfo, nullptr, &m_CommandPool);
-		assert(result == VK_SUCCESS);
+		for (int i = 0; i < FRAME_OVERLAP; i++)
+		{
+			VkResult result = vkCreateCommandPool(m_Device, &commandPoolInfo, nullptr, &m_Frames[i].m_CommandPool);
+			assert(result == VK_SUCCESS);
 
-		//allocate the default command buffer that we will use for rendering
-		VkCommandBufferAllocateInfo cmdAllocInfo = {};
-		cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-		cmdAllocInfo.pNext = nullptr;
+			//allocate the default command buffer that we will use for rendering
+			VkCommandBufferAllocateInfo cmdAllocInfo = VkInit::CommadBufferAllocateInfo(m_Frames[i].m_CommandPool, 1, VK_COMMAND_BUFFER_LEVEL_PRIMARY);
 
-		//commands will be made from our _commandPool
-		cmdAllocInfo.commandPool = m_CommandPool;
-		//we will allocate 1 command buffer
-		cmdAllocInfo.commandBufferCount = 1;
-		// command level is Primary
-		cmdAllocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
+			result = vkAllocateCommandBuffers(m_Device, &cmdAllocInfo, &m_Frames[i].m_MainCommandBuffer);
+			assert(result == VK_SUCCESS);
 
-		result = vkAllocateCommandBuffers(m_Device, &cmdAllocInfo, &m_MainCommandBuffer);
-		assert(result == VK_SUCCESS);
+			m_MainDeletionQueue.push_function([=]() 
+			{
+				vkDestroyCommandPool(m_Device, m_Frames[i].m_CommandPool, nullptr);
+			});
+		}
 	}
 
 	void VulkanEngine::CreateRenderPass()
@@ -669,27 +659,35 @@ namespace VKE
 	void VulkanEngine::CreateSyncStructures()
 	{
 		// Create synchronization structures.
-		VkFenceCreateInfo fenceCreateInfo = {};
-		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-		fenceCreateInfo.pNext = nullptr;
-
-		// We want to create the fence with the Create Signaled flag, so we can wait on it before using it on a GPU command (for the first frame).
-		fenceCreateInfo.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-
-		VkResult result = vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_RenderFence);
-		assert(result == VK_SUCCESS);
+		VkFenceCreateInfo fenceCreateInfo = VkInit::FenceCreateInfo(VK_FENCE_CREATE_SIGNALED_BIT);
 
 		// For the semaphores we don't need any flags.
-		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
-		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-		semaphoreCreateInfo.pNext = nullptr;
-		semaphoreCreateInfo.flags = 0;
+		VkSemaphoreCreateInfo semaphoreCreateInfo = VkInit::SemaphoreCreateInfo(0);
 
-		result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_PresentSemaphore);
-		assert(result == VK_SUCCESS);
+		for (int i = 0; i < FRAME_OVERLAP; i++)
+		{
+			VkResult result = vkCreateFence(m_Device, &fenceCreateInfo, nullptr, &m_Frames[i].m_RenderFence);
+			assert(result == VK_SUCCESS);
 
-		result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_RenderSemaphore);
-		assert(result == VK_SUCCESS);
+			//enqueue the destruction of the fence
+			m_MainDeletionQueue.push_function([=]() 
+			{
+				vkDestroyFence(m_Device, m_Frames[i].m_RenderFence, nullptr);
+			});
+
+			result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_Frames[i].m_PresentSemaphore);
+			assert(result == VK_SUCCESS);
+
+			result = vkCreateSemaphore(m_Device, &semaphoreCreateInfo, nullptr, &m_Frames[i].m_RenderSemaphore);
+			assert(result == VK_SUCCESS);
+
+			//enqueue the destruction of semaphores
+			m_MainDeletionQueue.push_function([=]() 
+			{
+				vkDestroySemaphore(m_Device, m_Frames[i].m_PresentSemaphore, nullptr);
+				vkDestroySemaphore(m_Device, m_Frames[i].m_RenderSemaphore, nullptr);
+			});
+		}
 	}
 
 	void VulkanEngine::CreateGraphicsPipeline()
@@ -1202,6 +1200,12 @@ namespace VKE
 		VkResult result = vmaCreateBuffer(m_Allocator, &bufferInfo, &vmaAllocationInfo, &mesh.VertexBuffer.Buffer, &mesh.VertexBuffer.Allocation, nullptr);
 		assert(result == VK_SUCCESS);
 
+		//add the destruction of triangle mesh buffer to the deletion queue
+		m_MainDeletionQueue.push_function([=]() 
+		{
+			vmaDestroyBuffer(m_Allocator, mesh.VertexBuffer.Buffer, mesh.VertexBuffer.Allocation);
+		});
+
 		void* data;
 		vmaMapMemory(m_Allocator, mesh.VertexBuffer.Allocation, &data);
 		memcpy(data, mesh.Vertices.data(), mesh.Vertices.size() * sizeof(Vertex));
@@ -1313,5 +1317,10 @@ namespace VKE
 			//we can now draw
 			vkCmdDraw(cmd, object.mesh->Vertices.size(), 1, 0, 0);
 		}
+	}
+
+	FrameData& VulkanEngine::GetCurrentFrame()
+	{
+		return m_Frames[m_FrameNumber % FRAME_OVERLAP];
 	}
 }

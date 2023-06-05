@@ -119,7 +119,8 @@ namespace VKE
 
 	VkImageCreateInfo VkInit::ImageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent)
 	{
-		VkImageCreateInfo info = { };
+		VkImageCreateInfo info = {};
+
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO;
 		info.pNext = nullptr;
 
@@ -141,6 +142,7 @@ namespace VKE
 	{
 		//build a image-view for the depth image to use for rendering
 		VkImageViewCreateInfo info = {};
+
 		info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
 		info.pNext = nullptr;
 
@@ -159,6 +161,7 @@ namespace VKE
 	VkPipelineDepthStencilStateCreateInfo VkInit::DepthStencilCreateInfo(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp)
 	{
 		VkPipelineDepthStencilStateCreateInfo info = {};
+
 		info.sType = VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO;
 		info.pNext = nullptr;
 
@@ -176,6 +179,7 @@ namespace VKE
 	VkRenderPassBeginInfo VkInit::RenderPassBeginInfo(VkRenderPass renderPass, VkExtent2D extends, VkFramebuffer framebuffer)
 	{
 		VkRenderPassBeginInfo rpInfo = {};
+
 		rpInfo.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
 		rpInfo.pNext = nullptr;
 
@@ -193,5 +197,55 @@ namespace VKE
 		rpInfo.pClearValues = &clearValue;
 
 		return rpInfo;
+	}
+
+	VkCommandPoolCreateInfo VkInit::CommandPoolCreateInfo(uint32_t graphicsQueueFamilyIndex, VkCommandPoolCreateFlags commandPoolCreateFlags)
+	{
+		VkCommandPoolCreateInfo commandPoolInfo = {};
+
+		commandPoolInfo.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+		commandPoolInfo.pNext = nullptr;
+
+		commandPoolInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
+		commandPoolInfo.flags = commandPoolCreateFlags;
+
+		return commandPoolInfo;
+	}
+
+	VkCommandBufferAllocateInfo VkInit::CommadBufferAllocateInfo(VkCommandPool commandPool, uint32_t commandBufferCount, VkCommandBufferLevel commandBufferLevel)
+	{
+		VkCommandBufferAllocateInfo cmdAllocInfo = {};
+
+		cmdAllocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
+		cmdAllocInfo.pNext = nullptr;
+
+		cmdAllocInfo.commandPool = commandPool;
+		cmdAllocInfo.commandBufferCount = commandBufferCount;
+		cmdAllocInfo.level = commandBufferLevel;
+
+		return cmdAllocInfo;
+	}
+
+	VkFenceCreateInfo VkInit::FenceCreateInfo(VkFenceCreateFlagBits fenceCreateFlagBits)
+	{
+		VkFenceCreateInfo fenceCreateInfo = {};
+
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.pNext = nullptr;
+
+		fenceCreateInfo.flags = fenceCreateFlagBits;
+
+		return fenceCreateInfo;
+	}
+
+	VkSemaphoreCreateInfo VkInit::SemaphoreCreateInfo(VkSemaphoreCreateFlags semaphoreCreateFlags)
+	{
+		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
+
+		semaphoreCreateInfo.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+		semaphoreCreateInfo.pNext = nullptr;
+		semaphoreCreateInfo.flags = semaphoreCreateFlags;
+
+		return semaphoreCreateInfo;
 	}
 }

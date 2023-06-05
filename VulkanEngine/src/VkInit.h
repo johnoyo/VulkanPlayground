@@ -21,5 +21,11 @@ namespace VKE
 		static VkPipelineDepthStencilStateCreateInfo DepthStencilCreateInfo(bool bDepthTest, bool bDepthWrite, VkCompareOp compareOp);
 
 		static VkRenderPassBeginInfo RenderPassBeginInfo(VkRenderPass renderPass, VkExtent2D extends, VkFramebuffer framebuffer);
+
+		static VkCommandPoolCreateInfo CommandPoolCreateInfo(uint32_t graphicsQueueFamilyIndex, VkCommandPoolCreateFlags commandPoolCreateFlags);
+		static VkCommandBufferAllocateInfo CommadBufferAllocateInfo(VkCommandPool commandPool, uint32_t commandBufferCount, VkCommandBufferLevel commandBufferLevel);
+
+		static VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlagBits fenceCreateFlagBits);
+		static VkSemaphoreCreateInfo SemaphoreCreateInfo(VkSemaphoreCreateFlags semaphoreCreateFlags);
 	};
 }
