@@ -45,6 +45,13 @@ namespace VKE
 		glm::mat4 renderMatrix;
 	};
 
+	struct GPUCameraData 
+	{
+		glm::mat4 view;
+		glm::mat4 proj;
+		glm::mat4 viewproj;
+	};
+
 	struct FrameData 
 	{
 		VkSemaphore m_PresentSemaphore, m_RenderSemaphore;
@@ -52,6 +59,11 @@ namespace VKE
 
 		VkCommandPool m_CommandPool;
 		VkCommandBuffer m_MainCommandBuffer;
+
+		//buffer that holds a single GPUCameraData to use when rendering
+		AllocatedBuffer cameraBuffer;
+
+		VkDescriptorSet globalDescriptor;
 	};
 
 	//number of frames to overlap when rendering
@@ -156,9 +168,6 @@ namespace VKE
 		std::vector<VkImage> m_SwapChainImages;
 		std::vector<VkImageView> m_SwapChainImageViews;
 
-		VkCommandPool m_CommandPool; //the command pool for our commands
-		VkCommandBuffer m_MainCommandBuffer; //the buffer we will record into
-
 		VkImageView m_DepthImageView;
 		AllocatedImage m_DepthImage;
 
@@ -167,9 +176,6 @@ namespace VKE
 
 		VkRenderPass m_RenderPass;
 		std::vector<VkFramebuffer> m_FrameBuffers;
-
-		VkSemaphore m_PresentSemaphore, m_RenderSemaphore;
-		VkFence m_RenderFence;
 
 		uint32_t m_FrameNumber = 0;
 
@@ -198,6 +204,9 @@ namespace VKE
 
 		DeletionQueue m_MainDeletionQueue;
 
+		VkDescriptorSetLayout m_GlobalSetLayout;
+		VkDescriptorPool m_DescriptorPool;
+
 		void InitWindow();
 		void InitVulkan();
 
@@ -214,6 +223,8 @@ namespace VKE
 		void CreateSyncStructures();
 		void CreateGraphicsPipeline();
 		void CreateAllocator();
+		AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+		void CreateDescriptors();
 
 		// Extensions.
 		std::vector<const char*> GetRequiredExtensions();

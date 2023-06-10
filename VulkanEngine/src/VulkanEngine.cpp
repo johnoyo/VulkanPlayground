@@ -68,7 +68,7 @@ namespace VKE
 
 		// Make a clear-color from frame number. This will flash with a 120*pi frame period.
 		VkClearValue clearValue;
-		float flash = std::abs(std::sin(m_FrameNumber / 220.f));
+		float flash = std::abs(std::sin(m_FrameNumber / 120.f));
 		clearValue.color = { { 0.0f, 0.0f, flash, 1.0f } };
 
 		//clear depth at 1
@@ -252,6 +252,7 @@ namespace VKE
 		CreateRenderPass();
 		CreateFrameBuffers();
 		CreateSyncStructures();
+		CreateDescriptors();
 		CreateGraphicsPipeline();
 	}
 
@@ -812,8 +813,13 @@ namespace VKE
 		//this push constant range is accessible only in the vertex shader
 		pushConstant.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
 
+		//push-constant setup
 		meshPipelineLayoutInfo.pPushConstantRanges = &pushConstant;
 		meshPipelineLayoutInfo.pushConstantRangeCount = 1;
+
+		//hook the global set layout
+		meshPipelineLayoutInfo.setLayoutCount = 1;
+		meshPipelineLayoutInfo.pSetLayouts = &m_GlobalSetLayout;
 
 		result = vkCreatePipelineLayout(m_Device, &meshPipelineLayoutInfo, nullptr, &m_MeshPipelineLayout);
 		assert(result == VK_SUCCESS);
@@ -840,6 +846,129 @@ namespace VKE
 		allocatorInfo.device = m_Device;
 		allocatorInfo.instance = m_Instance;
 		vmaCreateAllocator(&allocatorInfo, &m_Allocator);
+	}
+
+	AllocatedBuffer VulkanEngine::CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage)
+	{
+		//allocate vertex buffer
+		VkBufferCreateInfo bufferInfo = {};
+		bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+		bufferInfo.pNext = nullptr;
+
+		bufferInfo.size = allocSize;
+		bufferInfo.usage = usage;
+
+
+		VmaAllocationCreateInfo vmaallocInfo = {};
+		vmaallocInfo.usage = memoryUsage;
+
+		AllocatedBuffer newBuffer;
+
+		//allocate the buffer
+		VkResult res = vmaCreateBuffer(m_Allocator, &bufferInfo, &vmaallocInfo, &newBuffer.Buffer, &newBuffer.Allocation, nullptr);
+		assert(res == VK_SUCCESS);
+
+		return newBuffer;
+	}
+
+	void VulkanEngine::CreateDescriptors()
+	{
+		//create a descriptor pool that will hold 10 uniform buffers
+		std::vector<VkDescriptorPoolSize> sizes =
+		{
+			{ VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 10 }
+		};
+
+		VkDescriptorPoolCreateInfo pool_info = {};
+		pool_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+		pool_info.flags = 0;
+		pool_info.maxSets = 10;
+		pool_info.poolSizeCount = (uint32_t)sizes.size();
+		pool_info.pPoolSizes = sizes.data();
+
+		vkCreateDescriptorPool(m_Device, &pool_info, nullptr, &m_DescriptorPool);
+
+		//information about the binding.
+		VkDescriptorSetLayoutBinding camBufferBinding = {};
+		camBufferBinding.binding = 0;
+		camBufferBinding.descriptorCount = 1;
+		// it's a uniform buffer binding
+		camBufferBinding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+
+		// we use it from the vertex shader
+		camBufferBinding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT;
+
+		VkDescriptorSetLayoutCreateInfo setinfo = {};
+		setinfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+		setinfo.pNext = nullptr;
+
+		//we are going to have 1 binding
+		setinfo.bindingCount = 1;
+		//no flags
+		setinfo.flags = 0;
+		//point to the camera buffer binding
+		setinfo.pBindings = &camBufferBinding;
+
+		vkCreateDescriptorSetLayout(m_Device, &setinfo, nullptr, &m_GlobalSetLayout);
+
+		for (int i = 0; i < FRAME_OVERLAP; i++)
+		{
+			m_Frames[i].cameraBuffer = CreateBuffer(sizeof(GPUCameraData), VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT, VMA_MEMORY_USAGE_CPU_TO_GPU);
+
+			//allocate one descriptor set for each frame
+			VkDescriptorSetAllocateInfo allocInfo = {};
+			allocInfo.pNext = nullptr;
+			allocInfo.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+			//using the pool we just set
+			allocInfo.descriptorPool = m_DescriptorPool;
+			//only 1 descriptor
+			allocInfo.descriptorSetCount = 1;
+			//using the global data layout
+			allocInfo.pSetLayouts = &m_GlobalSetLayout;
+
+			vkAllocateDescriptorSets(m_Device, &allocInfo, &m_Frames[i].globalDescriptor);
+
+			//information about the buffer we want to point at in the descriptor
+			VkDescriptorBufferInfo binfo;
+			//it will be the camera buffer
+			binfo.buffer = m_Frames[i].cameraBuffer.Buffer;
+			//at 0 offset
+			binfo.offset = 0;
+			//of the size of a camera data struct
+			binfo.range = sizeof(GPUCameraData);
+
+			VkWriteDescriptorSet setWrite = {};
+			setWrite.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+			setWrite.pNext = nullptr;
+
+			//we are going to write into binding number 0
+			setWrite.dstBinding = 0;
+			//of the global descriptor
+			setWrite.dstSet = m_Frames[i].globalDescriptor;
+
+			setWrite.descriptorCount = 1;
+			//and the type is uniform buffer
+			setWrite.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+			setWrite.pBufferInfo = &binfo;
+
+			vkUpdateDescriptorSets(m_Device, 1, &setWrite, 0, nullptr);
+		}
+
+		// add buffers to deletion queues
+		for (int i = 0; i < FRAME_OVERLAP; i++)
+		{
+			m_MainDeletionQueue.push_function([&, i]()
+			{
+				vmaDestroyBuffer(m_Allocator, m_Frames[i].cameraBuffer.Buffer, m_Frames[i].cameraBuffer.Allocation);
+			});
+		}
+
+		// add descriptor set layout to deletion queues
+		m_MainDeletionQueue.push_function([&]() 
+		{
+			vkDestroyDescriptorSetLayout(m_Device, m_GlobalSetLayout, nullptr);
+			vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
+		});
 	}
 
 	// ------------------------------------------- HELPER ---------------------------------------
@@ -1272,14 +1401,25 @@ namespace VKE
 
 	void VulkanEngine::DrawObjects(VkCommandBuffer cmd, RenderObject* first, int count)
 	{
-		//make a model view matrix for rendering the object
 		//camera view
-		glm::vec3 camPos = { 0.f,-4.f,-10.f };
+		glm::vec3 camPos = { 0.f,-6.f,-10.f };
 
 		glm::mat4 view = glm::translate(glm::mat4(1.f), camPos);
 		//camera projection
 		glm::mat4 projection = glm::perspective(glm::radians(70.f), 1700.f / 900.f, 0.1f, 200.0f);
 		projection[1][1] *= -1;
+
+		//fill a GPU camera data struct
+		GPUCameraData camData;
+		camData.proj = projection;
+		camData.view = view;
+		camData.viewproj = projection * view;
+
+		//and copy it to the buffer
+		void* data;
+		vmaMapMemory(m_Allocator, GetCurrentFrame().cameraBuffer.Allocation, &data);
+		memcpy(data, &camData, sizeof(GPUCameraData));
+		vmaUnmapMemory(m_Allocator, GetCurrentFrame().cameraBuffer.Allocation);
 
 		Mesh* lastMesh = nullptr;
 		Material* lastMaterial = nullptr;
@@ -1293,14 +1433,13 @@ namespace VKE
 			{
 				vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipeline);
 				lastMaterial = object.material;
+
+				//bind the descriptor set when changing pipeline
+				vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, object.material->pipelineLayout, 0, 1, &GetCurrentFrame().globalDescriptor, 0, nullptr);
 			}
 
-			glm::mat4 model = object.transformMatrix;
-			//final render matrix, that we are calculating on the cpu
-			glm::mat4 mesh_matrix = projection * view * model;
-
 			MeshPushConstants constants;
-			constants.renderMatrix = mesh_matrix;
+			constants.renderMatrix = object.transformMatrix;
 
 			//upload the mesh to the GPU via push constants
 			vkCmdPushConstants(cmd, object.material->pipelineLayout, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(MeshPushConstants), &constants);
