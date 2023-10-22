@@ -15,6 +15,9 @@ namespace VKE
 		static VkPipelineColorBlendAttachmentState ColorBlendAttachmentState();
 		static VkPipelineLayoutCreateInfo PipelineLayoutCreateInfo();
 
+		static VkDescriptorSetLayoutBinding DescriptorsetLayoutBinding(VkDescriptorType type, VkShaderStageFlags stageFlags, uint32_t binding);
+		static VkWriteDescriptorSet WritDescriptorBuffer(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorBufferInfo* bufferInfo, uint32_t binding);
+
 		static VkImageCreateInfo ImageCreateInfo(VkFormat format, VkImageUsageFlags usageFlags, VkExtent3D extent);
 		static VkImageViewCreateInfo ImageViewCreateInfo(VkFormat format, VkImage image, VkImageAspectFlags aspectFlags);
 

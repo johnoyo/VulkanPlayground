@@ -33,7 +33,6 @@ namespace VKE
 	struct RenderObject 
 	{
 		Mesh* mesh;
-
 		Material* material;
 
 		glm::mat4 transformMatrix;
@@ -50,6 +49,15 @@ namespace VKE
 		glm::mat4 view;
 		glm::mat4 proj;
 		glm::mat4 viewproj;
+	};
+
+	struct GPUSceneData 
+	{
+		glm::vec4 fogColor; // w is for exponent
+		glm::vec4 fogDistances; //x for min, y for max, zw unused.
+		glm::vec4 ambientColor;
+		glm::vec4 sunlightDirection; //w for sun power
+		glm::vec4 sunlightColor;
 	};
 
 	struct FrameData 
@@ -109,13 +117,16 @@ namespace VKE
 	{
 		std::deque<std::function<void()>> deletors;
 
-		void push_function(std::function<void()>&& function) {
+		void push_function(std::function<void()>&& function) 
+		{
 			deletors.push_back(function);
 		}
 
-		void flush() {
+		void flush() 
+		{
 			// reverse iterate the deletion queue to execute all the functions
-			for (auto it = deletors.rbegin(); it != deletors.rend(); it++) {
+			for (auto it = deletors.rbegin(); it != deletors.rend(); it++) 
+			{
 				(*it)(); //call the function
 			}
 
@@ -190,6 +201,11 @@ namespace VKE
 
 		VmaAllocator m_Allocator; //vma lib allocator
 
+		VkPhysicalDeviceProperties m_GpuProperties;
+
+		GPUSceneData m_SceneParameters;
+		AllocatedBuffer m_SceneParameterBuffer;
+
 		const std::vector<const char*> m_DeviceExtensions = 
 		{
 			VK_KHR_SWAPCHAIN_EXTENSION_NAME
@@ -248,6 +264,8 @@ namespace VKE
 		VkSurfaceFormatKHR ChooseSwapSurfaceFormat(const std::vector<VkSurfaceFormatKHR>& availableFormats);
 		VkPresentModeKHR ChooseSwapPresentMode(const std::vector<VkPresentModeKHR>& availablePresentModes);
 		VkExtent2D ChooseSwapExtent(const VkSurfaceCapabilitiesKHR& capabilities);
+
+		size_t PadUniformBufferSize(size_t originalSize);
 
 		void LoadMeshes();
 		void UploadMesh(Mesh& mesh);

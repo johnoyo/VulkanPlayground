@@ -18,7 +18,7 @@ project "VulkanEngine"
     location "VulkanEngine"
     kind "StaticLib"
     language "C++"
-    cppdialect "C++17"
+    cppdialect "C++20"
     staticruntime "on"
 
     -- Directories for binary and intermediate files.
@@ -80,7 +80,7 @@ project "VulkanApp"
     location "VulkanApp"
     kind "ConsoleApp"
     language "C++"
-    cppdialect "C++17"
+    cppdialect "C++20"
     staticruntime "on"
 
     -- Directories for binary and intermediate files.
