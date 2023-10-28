@@ -40,7 +40,7 @@ namespace VKE
 		VkVertexInputAttributeDescription uvAttribute = {};
 		uvAttribute.binding = 0;
 		uvAttribute.location = 3;
-		uvAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+		uvAttribute.format = VK_FORMAT_R32G32_SFLOAT;
 		uvAttribute.offset = offsetof(Vertex, UV);
 
 		description.Attributes.push_back(positionAttribute);

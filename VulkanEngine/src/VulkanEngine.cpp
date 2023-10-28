@@ -881,6 +881,7 @@ namespace VKE
 		m_MainDeletionQueue.push_function([=]()
 		{
 			vkDestroyPipeline(m_Device, m_TexturedMeshPipeline, nullptr);
+			vkDestroyPipelineLayout(m_Device, texturedPipeLayout, nullptr);
 		});
 	}
 
@@ -1027,6 +1028,7 @@ namespace VKE
 		// add descriptor set layout to deletion queues
 		m_MainDeletionQueue.push_function([&]() 
 		{
+			vkDestroyDescriptorSetLayout(m_Device, m_SingleTextureSetLayout, nullptr);
 			vkDestroyDescriptorSetLayout(m_Device, m_GlobalSetLayout, nullptr);
 			vkDestroyDescriptorPool(m_Device, m_DescriptorPool, nullptr);
 		});
@@ -1494,6 +1496,11 @@ namespace VKE
 		vkUpdateDescriptorSets(m_Device, 1, &texture1, 0, nullptr);
 
 		m_Renderables.push_back(map);
+
+		m_MainDeletionQueue.push_function([=]()
+		{
+			vkDestroySampler(m_Device, blockySampler, m_Allocator->GetAllocationCallbacks());
+		});
 
 		for (int x = -20; x <= 20; x++) {
 			for (int y = -20; y <= 20; y++) {
