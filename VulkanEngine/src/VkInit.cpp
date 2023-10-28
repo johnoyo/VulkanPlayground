@@ -265,6 +265,16 @@ namespace VKE
 		return fenceCreateInfo;
 	}
 
+	VkFenceCreateInfo VkInit::FenceCreateInfo()
+	{
+		VkFenceCreateInfo fenceCreateInfo = {};
+
+		fenceCreateInfo.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+		fenceCreateInfo.pNext = nullptr;
+
+		return fenceCreateInfo;
+	}
+
 	VkSemaphoreCreateInfo VkInit::SemaphoreCreateInfo(VkSemaphoreCreateFlags semaphoreCreateFlags)
 	{
 		VkSemaphoreCreateInfo semaphoreCreateInfo = {};
@@ -274,5 +284,63 @@ namespace VKE
 		semaphoreCreateInfo.flags = semaphoreCreateFlags;
 
 		return semaphoreCreateInfo;
+	}
+
+	VkCommandBufferBeginInfo VkInit::CommandBufferBeginInfo(VkCommandBufferUsageFlags flags)
+	{
+		VkCommandBufferBeginInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
+		info.pNext = nullptr;
+
+		info.pInheritanceInfo = nullptr;
+		info.flags = flags;
+		return info;
+	}
+
+	VkSubmitInfo VkInit::SubmitInfo(VkCommandBuffer* cmd)
+	{
+		VkSubmitInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+		info.pNext = nullptr;
+
+		info.waitSemaphoreCount = 0;
+		info.pWaitSemaphores = nullptr;
+		info.pWaitDstStageMask = nullptr;
+		info.commandBufferCount = 1;
+		info.pCommandBuffers = cmd;
+		info.signalSemaphoreCount = 0;
+		info.pSignalSemaphores = nullptr;
+
+		return info;
+	}
+
+	VkSamplerCreateInfo VkInit::SamplerCreateInfo(VkFilter filters, VkSamplerAddressMode samplerAddressMode)
+	{
+		VkSamplerCreateInfo info = {};
+		info.sType = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+		info.pNext = nullptr;
+
+		info.magFilter = filters;
+		info.minFilter = filters;
+		info.addressModeU = samplerAddressMode;
+		info.addressModeV = samplerAddressMode;
+		info.addressModeW = samplerAddressMode;
+
+		return info;
+	}
+
+	VkWriteDescriptorSet VkInit::WriteDescriptorImage(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo* imageInfo, uint32_t binding)
+	{
+		VkWriteDescriptorSet write = {};
+		write.sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+		write.pNext = nullptr;
+
+		write.dstBinding = binding;
+		write.dstSet = dstSet;
+		write.descriptorCount = 1;
+		write.descriptorType = type;
+		write.pImageInfo = imageInfo;
+
+		return write;
 	}
 }

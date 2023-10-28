@@ -3,7 +3,6 @@
 #include <GLFW/glfw3.h>
 
 #include "VkInit.h"
-#include "VkUtils.h"
 #include "VkMesh.h"
 
 #include <set>
@@ -24,8 +23,15 @@
 
 namespace VKE
 {
+	struct Texture
+	{
+		AllocatedImage Image;
+		VkImageView ImageView;
+	};
+
 	struct Material 
 	{
+		VkDescriptorSet textureSet { VK_NULL_HANDLE };
 		VkPipeline pipeline;
 		VkPipelineLayout pipelineLayout;
 	};
@@ -134,6 +140,13 @@ namespace VKE
 		}
 	};
 
+	struct UploadContext 
+	{
+		VkFence m_UploadFence;
+		VkCommandPool m_CommandPool;
+		VkCommandBuffer m_CommandBuffer;
+	};
+
 	class VulkanEngine
 	{
 	public:
@@ -161,6 +174,16 @@ namespace VKE
 		FrameData m_Frames[FRAME_OVERLAP];
 		//getter for the frame we are rendering to right now.
 		FrameData& GetCurrentFrame();
+
+		UploadContext m_UploadContext;
+
+		void ImmediateSubmit(std::function<void(VkCommandBuffer cmd)>&& function);
+
+		//texture hashmap
+		std::unordered_map<std::string, Texture> m_LoadedTextures;
+		void LoadImages();
+
+		VkDescriptorSetLayout m_SingleTextureSetLayout;
 
 	private:
 		GLFWwindow* m_Window;
@@ -194,13 +217,17 @@ namespace VKE
 		VkPipeline m_TrianglePipeline;
 
 		VkPipeline m_MeshPipeline;
+		VkPipeline m_TexturedMeshPipeline;
 		VkPipelineLayout m_MeshPipelineLayout;
 		Mesh m_TriangleMesh;
 
 		Mesh m_MonkeyMesh;
 
+	public:
 		VmaAllocator m_Allocator; //vma lib allocator
+		DeletionQueue m_MainDeletionQueue;
 
+	private:
 		VkPhysicalDeviceProperties m_GpuProperties;
 
 		GPUSceneData m_SceneParameters;
@@ -218,7 +245,6 @@ namespace VKE
 
 		const bool m_EnableValidationLayers = true;
 
-		DeletionQueue m_MainDeletionQueue;
 
 		VkDescriptorSetLayout m_GlobalSetLayout;
 		VkDescriptorPool m_DescriptorPool;
@@ -239,7 +265,11 @@ namespace VKE
 		void CreateSyncStructures();
 		void CreateGraphicsPipeline();
 		void CreateAllocator();
+
+	public:
 		AllocatedBuffer CreateBuffer(size_t allocSize, VkBufferUsageFlags usage, VmaMemoryUsage memoryUsage);
+
+	private:
 		void CreateDescriptors();
 
 		// Extensions.

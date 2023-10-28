@@ -29,6 +29,13 @@ namespace VKE
 		static VkCommandBufferAllocateInfo CommadBufferAllocateInfo(VkCommandPool commandPool, uint32_t commandBufferCount, VkCommandBufferLevel commandBufferLevel);
 
 		static VkFenceCreateInfo FenceCreateInfo(VkFenceCreateFlagBits fenceCreateFlagBits);
+		static VkFenceCreateInfo FenceCreateInfo();
 		static VkSemaphoreCreateInfo SemaphoreCreateInfo(VkSemaphoreCreateFlags semaphoreCreateFlags);
+
+		static VkCommandBufferBeginInfo CommandBufferBeginInfo(VkCommandBufferUsageFlags flags = 0);
+		static VkSubmitInfo SubmitInfo(VkCommandBuffer* cmd);
+
+		static VkSamplerCreateInfo SamplerCreateInfo(VkFilter filters, VkSamplerAddressMode samplerAddressMode = VK_SAMPLER_ADDRESS_MODE_REPEAT);
+		static VkWriteDescriptorSet WriteDescriptorImage(VkDescriptorType type, VkDescriptorSet dstSet, VkDescriptorImageInfo* imageInfo, uint32_t binding);
 	};
 }

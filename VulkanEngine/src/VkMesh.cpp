@@ -36,9 +36,17 @@ namespace VKE
 		colorAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
 		colorAttribute.offset = offsetof(Vertex, Color);
 
+		//Color will be stored at Location 3
+		VkVertexInputAttributeDescription uvAttribute = {};
+		uvAttribute.binding = 0;
+		uvAttribute.location = 3;
+		uvAttribute.format = VK_FORMAT_R32G32B32_SFLOAT;
+		uvAttribute.offset = offsetof(Vertex, UV);
+
 		description.Attributes.push_back(positionAttribute);
 		description.Attributes.push_back(normalAttribute);
 		description.Attributes.push_back(colorAttribute);
+		description.Attributes.push_back(uvAttribute);
 
 		return description;		
 	}
@@ -99,6 +107,9 @@ namespace VKE
 					tinyobj::real_t nx = attrib.normals[3 * idx.normal_index + 0];
 					tinyobj::real_t ny = attrib.normals[3 * idx.normal_index + 1];
 					tinyobj::real_t nz = attrib.normals[3 * idx.normal_index + 2];
+					//vertex uv
+					tinyobj::real_t ux = attrib.texcoords[2 * idx.texcoord_index + 0];
+					tinyobj::real_t uy = attrib.texcoords[2 * idx.texcoord_index + 1];
 
 					//copy it into our vertex
 					Vertex new_vert;
@@ -112,6 +123,9 @@ namespace VKE
 
 					//we are setting the vertex color as the vertex normal. This is just for display purposes
 					new_vert.Color = new_vert.Normal;
+
+					new_vert.UV.x = ux;
+					new_vert.UV.y = 1 - uy;
 
 					Vertices.push_back(new_vert);
 				}
